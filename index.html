@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#171717"><meta name="description" content="An interactive reconstruction of Claude Code’s digital water effect. A fixed field of characters, drifting gray noise, and blue ripples.">
+<title>Claude Code Water — interactive recreation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23171717'/%3E%3Ctext x='5' y='28' fill='%23517f9c' font-size='30' font-family='monospace'%3E~%3C/text%3E%3C/svg%3E">
+<meta property="og:title" content="Claude Code Water">
+<meta property="og:description" content="An interactive recreation of Claude Code’s digital water animation. Click to make a ripple.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://traddmccorkle.github.io/claude-code-water/">
+<meta property="og:image" content="https://traddmccorkle.github.io/claude-code-water/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+@font-face{font-family:"Digital Mono";src:url("fonts/GeistMono-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:block}
+:root{color-scheme:dark;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#aaa;background:#171717}*{box-sizing:border-box}body{margin:0;overflow:hidden}canvas{display:block;width:100vw;height:100dvh;touch-action:none;outline:none}canvas:focus-visible{box-shadow:inset 0 0 0 1px #527c96}.panel{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:min(530px,calc(100vw - 32px));border:1px solid #ffffff10;border-radius:12px;background:#1b1b1bed;box-shadow:0 8px 32px #0002;padding:13px 16px;transition:opacity .2s,visibility .2s}.top{display:flex;align-items:center;gap:12px}.title{font-size:12px;font-weight:500;letter-spacing:.02em;color:#c3c3c3;margin-right:auto}.dot{display:inline-block;width:5px;height:5px;margin-right:8px;background:#4c7894;border-radius:50%}button,select{font:inherit;color:#bcbcbc;background:transparent;border:1px solid #ffffff12;border-radius:6px;min-height:29px;padding:4px 9px;cursor:pointer}button:hover,select:hover{background:#ffffff08;color:#eee}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #668aa3;outline-offset:3px}option{background:#222}dialog{border:1px solid #444;border-radius:12px;padding:16px;background:#202020;max-width:90vw}dialog::backdrop{background:#000b}dialog img{display:block;max-width:80vw;max-height:75vh}dialog div{display:flex;align-items:center;justify-content:space-between;margin-top:12px}.text-button{border:0;padding:0;min-height:0;font:inherit;color:inherit;text-decoration:underline}.timeline{display:flex;align-items:center;gap:12px;margin-top:10px}input[type=range]{height:12px;margin:0;flex:1;min-width:40px;accent-color:#5b829a;cursor:pointer}output{font:10px Menlo,monospace;color:#777;min-width:53px;text-align:right}.hint{font-size:10px;color:#696969;margin-top:8px;display:flex;justify-content:space-between;gap:12px}.hide{position:fixed;right:16px;top:16px;border-color:transparent;color:#707070;background:#17171788;font-size:11px}.hidden .panel{opacity:0;visibility:hidden}.hidden .hide{opacity:0}.hidden .hide:hover,.hidden .hide:focus-visible{opacity:1}#error{position:fixed;inset:30%;display:none;color:#bbb;text-align:center}a{color:inherit} @media(max-width:440px){.panel{padding:12px;bottom:16px}.top{gap:7px}.hint{font-size:9px}.title{font-size:11px}select{max-width:125px}}@media(prefers-reduced-motion:reduce){.panel{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="water" tabindex="0" role="img" aria-label="Animated field of letters with blue water ripples. Click or tap to add a drop."></canvas>
+<button class="hide" id="hide" aria-label="Hide controls (H)">Hide controls ↗</button>
+<section class="panel" aria-label="Water animation controls">
+ <div class="top"><span class="title"><span class="dot"></span>Digital water</span><select id="mode" aria-label="Animation mode"><option value="sequence">Reference sequence</option><option value="random">Random drips</option><option value="manual">Click to ripple</option></select><button id="pause" aria-label="Pause animation">Pause</button><button id="replay" aria-label="Restart animation">↺</button></div>
+ <div class="timeline"><input id="time" type="range" min="0" max="9.99" value="0" step="0.01" aria-label="Sequence time in seconds"><output id="stamp">0.00 s</output></div>
+ <div class="hint"><span>Click to ripple · Space to pause · H to hide</span><span><button id="save" class="text-button">Save frame</button> · <a href="https://github.com/traddmccorkle/claude-code-water" target="_blank" rel="noopener">GitHub ↗</a></span></div>
+</section>
+<p id="error" role="alert"></p>
+<dialog id="export"><img id="frame" alt="Captured animation frame"><div><a id="download" download>Download PNG</a><button id="close-export">Close</button></div></dialog>
+<script src="waves.js"></script>
+<script>
+'use strict';
+(async function(){
+try { await document.fonts.load('12.5px "Digital Mono"'); } catch {}
+const params=new URLSearchParams(location.search), reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const freeze=params.has('t')&&Number.isFinite(Number(params.get('t')));
+const modeEl=document.querySelector('#mode'),pauseEl=document.querySelector('#pause'),slider=document.querySelector('#time'),stamp=document.querySelector('#stamp');
+try {
+ const validMode=['sequence','random','manual'].includes(params.get('mode'))?params.get('mode'):'sequence';
+ const waves=DigitalWaves.create(document.querySelector('#water'),{mode:validMode,time:freeze?Number(params.get('t')):0,paused:freeze||reduced});
+ window.waves=waves;modeEl.value=validMode;
+ function sync(){pauseEl.textContent=waves.paused?'Play':'Pause';pauseEl.setAttribute('aria-label',waves.paused?'Play animation':'Pause animation');slider.disabled=waves.mode!=='sequence';}
+ function toggle(){waves.paused?waves.play():waves.pause();sync();}
+ function hide(){document.body.classList.toggle('hidden');const hidden=document.body.classList.contains('hidden');document.querySelector('#hide').textContent=hidden?'Show controls ↙':'Hide controls ↗';document.querySelector('#hide').setAttribute('aria-label',hidden?'Show controls (H)':'Hide controls (H)');document.querySelector('#water').focus({preventScroll:true});}
+ document.querySelector('#save').onclick=()=>{const data=waves.capture(),a=document.querySelector('#download');document.querySelector('#frame').src=data;a.href=data;a.download='digital-water-'+waves.time.toFixed(2)+'.png';document.querySelector('#export').showModal();};
+ document.querySelector('#close-export').onclick=()=>document.querySelector('#export').close();
+ pauseEl.onclick=toggle;document.querySelector('#replay').onclick=()=>{waves.seek(0);waves.play();sync();};
+ modeEl.onchange=()=>{waves.setMode(modeEl.value);sync();};slider.oninput=()=>{waves.pause();waves.seek(Number(slider.value));sync();};document.querySelector('#hide').onclick=hide;
+ document.addEventListener('keydown',e=>{if(e.target.matches('input,select')||document.querySelector('#export').open)return;if(e.code==='Space'&& !e.target.matches('button,a')){e.preventDefault();toggle();}if(e.key.toLowerCase()==='h')hide();if(e.key.toLowerCase()==='r'){waves.seek(0);}});
+ function tick(){slider.value=String(waves.time);stamp.value=waves.time.toFixed(2)+' s';requestAnimationFrame(tick);}sync();tick();if(params.get('ui')==='0')hide();
+} catch(e){const error=document.querySelector('#error');error.textContent=e.message;error.style.display='block';document.querySelector('.panel').hidden=true;console.error(e);}
+})();
+</script>
+</body></html>
